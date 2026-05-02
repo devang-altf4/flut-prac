@@ -1,0 +1,58 @@
+# Repository root ignore rules for the Flutter app under mobile_app/
+
+# Secrets
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+
+# Flutter/Dart generated files
+mobile_app/.dart_tool/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/.pub-cache/
+mobile_app/.pub/
+mobile_app/build/
+mobile_app/coverage/
+
+# Local planning notes
+mobile_app/IMPLEMENTATION_PLAN.md
+
+# Android/iOS/macOS local build state
+mobile_app/android/.gradle/
+mobile_app/android/build/
+mobile_app/android/local.properties
+mobile_app/android/app/debug/
+mobile_app/android/app/profile/
+mobile_app/android/app/release/
+mobile_app/ios/Pods/
+mobile_app/ios/Flutter/Generated.xcconfig
+mobile_app/ios/Flutter/flutter_export_environment.sh
+mobile_app/ios/Flutter/.last_build_id
+mobile_app/ios/Flutter/ephemeral/
+mobile_app/macos/Pods/
+mobile_app/macos/Flutter/ephemeral/
+mobile_app/linux/flutter/ephemeral/
+mobile_app/windows/flutter/ephemeral/
+
+# Node backend generated files
+mobile_app/backend/node_modules/
+mobile_app/backend/uploads/
+mobile_app/backend/.npm/
+mobile_app/backend/npm-debug.log*
+mobile_app/backend/yarn-debug.log*
+mobile_app/backend/yarn-error.log*
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local artifacts
+*.log
+*.pdf
+tmp/
+temp/
