@@ -20,13 +20,46 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   List<String> _previewRows = [];
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'xlsx', 'xls'],
-    );
+    // Allow any file type so Google Drive spreadsheets (which may have
+    // non-standard extensions or MIME types) can be selected.
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    final ext = (file.extension ?? '').toLowerCase();
+    final name = file.name.toLowerCase();
+
+    // Accept csv, xlsx, xls, or Google Sheets exported files
+    final isSpreadsheet = ['csv', 'xlsx', 'xls'].contains(ext) ||
+        name.endsWith('.csv') ||
+        name.endsWith('.xlsx') ||
+        name.endsWith('.xls') ||
+        name.contains('spreadsheet') ||
+        name.contains('sheet');
+
+    if (!isSpreadsheet && file.path != null) {
+      // Try reading the first bytes to detect XLSX magic number (PK zip)
+      final bytes = await File(file.path!).openRead(0, 4).fold<List<int>>(
+        <int>[],
+        (prev, chunk) => prev..addAll(chunk),
+      );
+      final isPkZip = bytes.length >= 4 &&
+          bytes[0] == 0x50 &&
+          bytes[1] == 0x4B &&
+          bytes[2] == 0x03 &&
+          bytes[3] == 0x04;
+      if (!isPkZip) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a CSV or Excel/Google Sheets file'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
     final preview = await _buildPreview(file);
     setState(() {
       _file = file;
@@ -68,7 +101,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               Text(
-                'CSV or Excel Upload',
+                'CSV / Excel / Google Sheets Upload',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
@@ -80,7 +113,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
               OutlinedButton.icon(
                 onPressed: _pickFile,
                 icon: const Icon(Icons.attach_file),
-                label: Text(_file == null ? 'Choose CSV/Excel file' : _file!.name),
+                label: Text(_file == null ? 'Choose CSV / Excel / Sheets file' : _file!.name),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(56),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

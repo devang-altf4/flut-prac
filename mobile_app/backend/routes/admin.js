@@ -28,11 +28,22 @@ const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
+    const mime = file.mimetype || '';
+    // Accept standard spreadsheet extensions
     if (['.csv', '.xlsx', '.xls'].includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only CSV and Excel files are allowed'));
+      return cb(null, true);
     }
+    // Accept Google Sheets / spreadsheet MIME types (from Google Drive)
+    if (
+      mime.includes('spreadsheet') ||
+      mime.includes('csv') ||
+      mime.includes('excel') ||
+      mime.includes('application/octet-stream') ||
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ) {
+      return cb(null, true);
+    }
+    cb(new Error('Only CSV and Excel/Google Sheets files are allowed'));
   },
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });

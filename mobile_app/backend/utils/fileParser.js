@@ -86,7 +86,28 @@ const parseLeadFile = async (filePath) => {
     return parseExcel(filePath);
   }
 
-  throw new Error('Unsupported file format. Please upload CSV or Excel (.xlsx/.xls) files.');
+  // Unknown extension — detect by file content (Google Drive / Sheets files)
+  try {
+    const buffer = Buffer.alloc(4);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buffer, 0, 4, 0);
+    fs.closeSync(fd);
+
+    // XLSX files are ZIP archives starting with PK (0x50 0x4B)
+    if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
+      return parseExcel(filePath);
+    }
+
+    // Otherwise try as CSV (plain text)
+    return parseCsv(filePath);
+  } catch (err) {
+    // Last resort: try Excel then CSV
+    try {
+      return parseExcel(filePath);
+    } catch {
+      return parseCsv(filePath);
+    }
+  }
 };
 
 module.exports = { parseLeadFile, normalizeRows };
