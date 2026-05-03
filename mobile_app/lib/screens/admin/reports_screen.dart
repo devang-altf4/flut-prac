@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/admin_provider.dart';
@@ -49,7 +50,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _download() async {
-    await context.read<AdminProvider>().downloadReport(startDate: _startDate, endDate: _endDate);
+    await context.read<AdminProvider>().downloadReport(
+      startDate: _startDate,
+      endDate: _endDate,
+    );
   }
 
   @override
@@ -69,10 +73,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               Text(
                 'Reports',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 4),
-              Text(rangeLabel, style: const TextStyle(color: AppTheme.textMuted)),
+              Text(
+                rangeLabel,
+                style: const TextStyle(color: AppTheme.textMuted),
+              ),
               const SizedBox(height: 18),
               GridView.count(
                 crossAxisCount: MediaQuery.sizeOf(context).width > 640 ? 4 : 2,
@@ -115,7 +124,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 label: const Text('Choose Date Range'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -127,7 +138,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
               if (admin.error != null) ...[
                 const SizedBox(height: 12),
-                Text(admin.error!, style: const TextStyle(color: AppTheme.danger)),
+                Text(
+                  admin.error!.contains('Storage permission')
+                      ? 'Storage access is required to save the PDF. Allow it and try again.'
+                      : admin.error!,
+                  style: const TextStyle(color: AppTheme.danger),
+                ),
+                if (admin.error!.contains('Storage permission'))
+                  TextButton(
+                    onPressed: openAppSettings,
+                    child: const Text('Open Settings'),
+                  ),
               ],
               if (admin.lastReportPath != null) ...[
                 const SizedBox(height: 12),
@@ -139,10 +160,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
               const SizedBox(height: 24),
               Text(
                 'Per-Employee Breakdown',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              for (final item in (dashboard['employeeStats'] as List<dynamic>? ?? []))
+              for (final item
+                  in (dashboard['employeeStats'] as List<dynamic>? ?? []))
                 Card(
                   child: ListTile(
                     title: Text(item['name']?.toString() ?? 'Employee'),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:media_store_plus/media_store_plus.dart';
 import 'package:open_filex/open_filex.dart';
@@ -125,7 +126,13 @@ class AdminService {
     String openPath;
 
     if (Platform.isAndroid) {
-      final permissionStatus = await Permission.storage.request();
+      if (await _needsLegacyStoragePermission()) {
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          await openAppSettings();
+          throw Exception('Storage permission denied');
+        }
+      }
       await MediaStore.ensureInitialized();
       MediaStore.appFolder = 'DayaarCRM';
       final info = await MediaStore().saveFile(
@@ -134,9 +141,6 @@ class AdminService {
         dirName: DirName.download,
       );
       if (info == null || info.uri.toString().isEmpty) {
-        if (!permissionStatus.isGranted) {
-          throw Exception('Storage permission denied');
-        }
         throw Exception('Failed to save report to Downloads');
       }
       openPath = info.uri.toString();
@@ -155,6 +159,12 @@ class AdminService {
     }
 
     return displayPath;
+  }
+
+  Future<bool> _needsLegacyStoragePermission() async {
+    if (!Platform.isAndroid) return false;
+    final info = await DeviceInfoPlugin().androidInfo;
+    return info.version.sdkInt <= 28;
   }
 
   Future<Map<String, dynamic>> deleteAllLeads() async {
