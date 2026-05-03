@@ -73,10 +73,20 @@ class AdminProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> downloadReport({DateTime? startDate, DateTime? endDate}) async {
+  Future<String?> prepareReport({DateTime? startDate, DateTime? endDate}) async {
+    String? path;
     await _run(() async {
-      _lastReportPath = await _service.downloadReport(startDate: startDate, endDate: endDate);
+      path = await _service.downloadReportToTemp(
+        startDate: startDate,
+        endDate: endDate,
+      );
     });
+    return path;
+  }
+
+  void setLastReportPath(String path) {
+    _lastReportPath = path;
+    notifyListeners();
   }
 
   Future<void> deleteAllLeads() async {

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/admin_provider.dart';
+import '../../services/report_save_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/permission_dialogs.dart';
 import '../../widgets/stat_card.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
+  final ReportSaveService _saver = ReportSaveService();
   DateTime? _startDate;
   DateTime? _endDate;
   bool _loaded = false;
@@ -50,9 +53,101 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _download() async {
-    await context.read<AdminProvider>().downloadReport(
-      startDate: _startDate,
-      endDate: _endDate,
+    final tempPath = await context
+        .read<AdminProvider>()
+        .prepareReport(startDate: _startDate, endDate: _endDate);
+    if (tempPath == null || !mounted) return;
+
+    final destination = await _showDestinationSheet();
+    if (destination == null || !mounted) return;
+
+    if (destination == SaveDestination.downloads &&
+        await _saver.needsLegacyStoragePermission()) {
+      if (!mounted) return;
+      final consent = await showStoragePermissionRationale(context);
+      if (!consent || !mounted) return;
+    }
+
+    await _runSave(tempPath, destination);
+  }
+
+  Future<void> _runSave(String tempPath, SaveDestination destination) async {
+    try {
+      final result = await _saver.save(
+        tempFilePath: tempPath,
+        destination: destination,
+      );
+      if (result == null || !mounted) return;
+
+      context.read<AdminProvider>().setLastReportPath(result.displayPath);
+
+      final open = await OpenFilex.open(result.openTarget);
+      if (!mounted) return;
+      if (open.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Saved to ${result.displayPath}, but could not open: ${open.message}',
+            ),
+          ),
+        );
+      }
+    } on PermissionDeniedException catch (e) {
+      if (!mounted) return;
+      if (e.permanentlyDenied) {
+        final goToSettings = await showOpenSettingsDialog(context);
+        if (goToSettings) {
+          await _saver.openSettings();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Storage permission denied. Cannot save the report.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save report: $e')),
+      );
+    }
+  }
+
+  Future<SaveDestination?> _showDestinationSheet() {
+    return showModalBottomSheet<SaveDestination>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Save report as',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Save to Downloads'),
+              subtitle: const Text('Default location, opens automatically'),
+              onTap: () =>
+                  Navigator.pop(sheetContext, SaveDestination.downloads),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_open_outlined),
+              title: const Text('Choose location…'),
+              subtitle: const Text('Pick a custom folder'),
+              onTap: () => Navigator.pop(sheetContext, SaveDestination.custom),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 
@@ -139,16 +234,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
               if (admin.error != null) ...[
                 const SizedBox(height: 12),
                 Text(
-                  admin.error!.contains('Storage permission')
-                      ? 'Storage access is required to save the PDF. Allow it and try again.'
-                      : admin.error!,
+                  admin.error!,
                   style: const TextStyle(color: AppTheme.danger),
                 ),
-                if (admin.error!.contains('Storage permission'))
-                  TextButton(
-                    onPressed: openAppSettings,
-                    child: const Text('Open Settings'),
-                  ),
               ],
               if (admin.lastReportPath != null) ...[
                 const SizedBox(height: 12),

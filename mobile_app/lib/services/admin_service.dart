@@ -1,12 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
-import 'package:media_store_plus/media_store_plus.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../config/api_config.dart';
 import '../models/lead.dart';
@@ -87,18 +83,20 @@ class AdminService {
   }) async {
     final query = <String, String>{};
     if (status != null && status != 'all') query['status'] = status;
-    if (employeeId != null && employeeId.isNotEmpty)
+    if (employeeId != null && employeeId.isNotEmpty) {
       query['employeeId'] = employeeId;
+    }
     if (batchId != null && batchId.isNotEmpty) query['batchId'] = batchId;
-    if (search != null && search.trim().isNotEmpty)
+    if (search != null && search.trim().isNotEmpty) {
       query['search'] = search.trim();
+    }
 
     final uri = Uri.parse(ApiConfig.adminLeads).replace(queryParameters: query);
     final response = await http.get(uri, headers: _headers);
     return _decodeList(response).map((item) => Lead.fromJson(item)).toList();
   }
 
-  Future<String> downloadReport({
+  Future<String> downloadReportToTemp({
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -121,50 +119,7 @@ class AdminService {
     final tempDir = await getTemporaryDirectory();
     final tempFile = File('${tempDir.path}/dayaar_crm_report.pdf');
     await tempFile.writeAsBytes(response.bodyBytes);
-
-    String displayPath;
-    String openPath;
-
-    if (Platform.isAndroid) {
-      if (await _needsLegacyStoragePermission()) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          await openAppSettings();
-          throw Exception('Storage permission denied');
-        }
-      }
-      await MediaStore.ensureInitialized();
-      MediaStore.appFolder = 'DayaarCRM';
-      final info = await MediaStore().saveFile(
-        tempFilePath: tempFile.path,
-        dirType: DirType.download,
-        dirName: DirName.download,
-      );
-      if (info == null || info.uri.toString().isEmpty) {
-        throw Exception('Failed to save report to Downloads');
-      }
-      openPath = info.uri.toString();
-      displayPath = 'Download/dayaar_crm_report.pdf';
-    } else {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/dayaar_crm_report.pdf');
-      await file.writeAsBytes(response.bodyBytes);
-      openPath = file.path;
-      displayPath = file.path;
-    }
-
-    final result = await OpenFilex.open(openPath);
-    if (result.type != ResultType.done) {
-      // Non-fatal: the report is already saved for manual opening.
-    }
-
-    return displayPath;
-  }
-
-  Future<bool> _needsLegacyStoragePermission() async {
-    if (!Platform.isAndroid) return false;
-    final info = await DeviceInfoPlugin().androidInfo;
-    return info.version.sdkInt <= 28;
+    return tempFile.path;
   }
 
   Future<Map<String, dynamic>> deleteAllLeads() async {
